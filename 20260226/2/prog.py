@@ -7,6 +7,9 @@ SIZE_Y = 10
 START_X = 0
 START_Y = 0
 
+UNKNOWN_MONSTER = 1
+INVALID_ARGS = 2
+
 
 class Field:
     def __init__(self, size_x=10, size_y=10, start_x=0, start_y=0):
@@ -17,24 +20,28 @@ class Field:
 
 
 def field_addmon(field, line):
-    if (matched := re.search(r'^addmon\s+(\d+)\s+(\d+)\s+(\S+)$', line)):
-        x = int(matched.group(1))
-        y = int(matched.group(2))
-
+    if (matched := re.search(r'^addmon\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)$', line)):
+        x = int(matched.group(2))
+        y = int(matched.group(3))
         if not (0 <= x < field.size_x and 0 <= y < field.size_y):
-            raise ValueError
-        word = matched.group(3)
+            raise ValueError(INVALID_ARGS)
+        
+        word = matched.group(4)
+        name = matched.group(1)
+
+        if name not in cowsay.list_cows():
+            raise ValueError(UNKNOWN_MONSTER)
         fl_replaced = (x, y) in field.monsters
-        field.monsters[(x, y)] = word
-        print(f"Added monster to ({x}, {y}) saying {word}")
+        field.monsters[(x, y)] = {'name': name, 'word': word}
+        print(f"Added monster {name} to ({x}, {y}) saying {word}")
         if fl_replaced:
             print("Replaced the old monster")
     else:
-        raise ValueError
+        raise ValueError(INVALID_ARGS)
 
 
 def encounter(field, x, y):
-    print(cowsay.cowsay(field.monsters[(x, y)]))
+    print(cowsay.cowsay(field.monsters[(x, y)]['word']))
 
 
 def player_moving(field, line):
@@ -69,8 +76,11 @@ def command_reader(field):
         elif line.split()[0] == "addmon":
             try:
                 field_addmon(field, line)
-            except ValueError:
-                print("Invalid arguments")
+            except ValueError as error:
+                if error.args[0] == INVALID_ARGS:
+                    print("Invalid arguments")
+                elif error.args[0] == UNKNOWN_MONSTER:
+                    print("Cannot add unknown monster")
         else:
             print("Invalid command")
 
