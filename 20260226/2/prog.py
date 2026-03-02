@@ -41,7 +41,7 @@ def field_addmon(field, line):
 
 
 def encounter(field, x, y):
-    print(cowsay.cowsay(field.monsters[(x, y)]['word']))
+    print(cowsay.cowsay(field.monsters[(x, y)]['word'], cow=field.monsters[(x, y)]['name']))
 
 
 def player_moving(field, line):
