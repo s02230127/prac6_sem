@@ -114,6 +114,7 @@ def add_monster_type(field):
 
 
 def game():
+    print("<<< Welcome to Python-MUD 0.1 >>>")
     field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
     add_monster_type(field)
     command_reader(field)
