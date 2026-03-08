@@ -2,7 +2,6 @@ import sys
 from io import StringIO
 import shlex
 import cowsay
-import re
 
 SIZE_X = 10
 SIZE_Y = 10
@@ -80,7 +79,6 @@ def encounter(field, x, y):
         print(cowsay.cowsay(field.monsters[(x, y)]['hello'], cow=monster))
 
 
-
 def player_moving(field, line):
     if line == 'up':
         field.player = (field.player[0], (field.player[1] - 1) % field.size_y)
@@ -120,23 +118,23 @@ def command_reader(field):
                     print("Cannot add unknown monster")
         else:
             print("Invalid command")
- 
+
 
 def add_monster_type(field):
     jgsbat = cowsay.read_dot_cow(StringIO(r"""
-        $the_cow = <<EOC;
-              $thoughts
-                  $thoughts
-        ,_                    _,
-        ) '-._  ,_    _,  _.-' (
-        )  _.-'.|\\--//|.'-._  (
-         )'   .'\/o\/o\/'.   `(
-          ) .' . \====/ . '. (
-           )  / <<    >> \  (
-            '-._/``  ``\_.-'
-      jgs     __\\'--'//__
-             (((""`  `"")))
-    EOC
+$the_cow = <<EOC;
+        $thoughts
+            $thoughts
+    ,_                    _,
+    ) '-._  ,_    _,  _.-' (
+    )  _.-'.|\\\--//|.'-._  (
+     )'   .'\/o\/o\/'.   `(
+      ) .' . \====/ . '. (
+       )  / <<    >> \  (
+        '-._/``  ``\_.-'
+  jgs     __\\\'--'//__
+         (((""`  `"")))
+EOC
     """))
     
     field.monster_types['jgsbat'] = jgsbat
