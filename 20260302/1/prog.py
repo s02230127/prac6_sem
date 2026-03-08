@@ -1,6 +1,7 @@
 import sys
-import re
+from io import StringIO
 import cowsay
+import re
 
 SIZE_X = 10
 SIZE_Y = 10
@@ -15,6 +16,7 @@ class Field:
     def __init__(self, size_x=10, size_y=10, start_x=0, start_y=0):
         self.player = (start_x % size_x, start_y % size_y)
         self.monsters = {}
+        self.monster_types = {}
         self.size_x = size_x
         self.size_y = size_y
 
@@ -29,8 +31,9 @@ def field_addmon(field, line):
         word = matched.group(4)
         name = matched.group(1)
 
-        if name not in cowsay.list_cows():
+        if name not in field.monster_types and name not in cowsay.list_cows():
             raise ValueError(UNKNOWN_MONSTER)
+        
         fl_replaced = (x, y) in field.monsters
         field.monsters[(x, y)] = {'name': name, 'word': word}
         print(f"Added monster {name} to ({x}, {y}) saying {word}")
@@ -41,7 +44,12 @@ def field_addmon(field, line):
 
 
 def encounter(field, x, y):
-    print(cowsay.cowsay(field.monsters[(x, y)]['word'], cow=field.monsters[(x, y)]['name']))
+    if field.monsters[(x, y)]['name'] in field.monster_types:
+        monster = field.monster_types[field.monsters[(x, y)]['name']]
+        print(cowsay.cowsay(field.monsters[(x, y)]['word'], cowfile=monster))
+    else:
+        monster = field.monsters[(x, y)]['name']
+        print(cowsay.cowsay(field.monsters[(x, y)]['word'], cow=monster))
 
 
 def player_moving(field, line):
@@ -83,10 +91,31 @@ def command_reader(field):
                     print("Cannot add unknown monster")
         else:
             print("Invalid command")
+ 
+
+def add_monster_type(field):
+    jgsbat = cowsay.read_dot_cow(StringIO(r"""
+        $the_cow = <<EOC;
+              $thoughts
+                  $thoughts
+        ,_                    _,
+        ) '-._  ,_    _,  _.-' (
+        )  _.-'.|\\--//|.'-._  (
+         )'   .'\/o\/o\/'.   `(
+          ) .' . \====/ . '. (
+           )  / <<    >> \  (
+            '-._/``  ``\_.-'
+      jgs     __\\'--'//__
+             (((""`  `"")))
+    EOC
+    """))
+    
+    field.monster_types['jgsbat'] = jgsbat
 
 
 def game():
     field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
+    add_monster_type(field)
     command_reader(field)
 
 
