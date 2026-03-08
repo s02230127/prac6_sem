@@ -24,7 +24,13 @@ class Field:
 
 def field_addmon(field, line):
     stats = {}
-    line = shlex.split(line)
+    try:
+        line = shlex.split(line)
+    except ValueError:
+        raise ValueError(INVALID_ARGS)
+    
+    if len(line) != 9:
+        raise ValueError(INVALID_ARGS)
 
     if "addmon" != line[0]:
         raise ValueError(INVALID_ARGS)
@@ -32,28 +38,37 @@ def field_addmon(field, line):
         raise ValueError(UNKNOWN_MONSTER)
     stats['name'] = line[1]
 
-    if 'hello' not in line:
-        raise ValueError(INVALID_ARGS)
-    ind = line.index('hello')
-    stats['hello'] = line[ind + 1]
-
-    ind = line.index('hp')
-    hp = line[ind + 1]
-    if hp.isdigit() and int(hp) > 0:
-        stats['hp'] = int(hp)
-    else:
+    try:
+        ind = line.index('hello')
+        stats['hello'] = line[ind + 1]
+        del line[ind:ind + 2]
+    except (IndexError, ValueError):
         raise ValueError(INVALID_ARGS)
 
-    ind = line.index('coords')
-    x = int(line[ind + 1])
-    y = int(line[ind + 2])
-    
+    try:
+        ind = line.index('hp')
+        hp = line[ind + 1]
+        if hp.isdigit() and int(hp) > 0:
+            stats['hp'] = int(hp)
+        else:
+            raise ValueError(INVALID_ARGS)
+    except (IndexError, ValueError):
+        raise ValueError(INVALID_ARGS)
+
+    try:
+        ind = line.index('coords')
+        x = int(line[ind + 1])
+        y = int(line[ind + 2])
+        if not(0 <= x < field.size_x and 0 <= y < field.size_y):
+            raise ValueError(INVALID_ARGS)
+    except (IndexError, ValueError):
+        raise ValueError(INVALID_ARGS)
+
     fl_replaced = (x, y) in field.monsters
     field.monsters[(x, y)] = stats
     print(f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}")
     if fl_replaced:
         print("Replaced the old monster")
-
 
 
 def encounter(field, x, y):
