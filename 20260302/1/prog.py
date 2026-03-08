@@ -1,5 +1,6 @@
 import sys
 from io import StringIO
+import shlex
 import cowsay
 import re
 
@@ -22,34 +23,47 @@ class Field:
 
 
 def field_addmon(field, line):
-    if (matched := re.search(r'^addmon\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)$', line)):
-        x = int(matched.group(2))
-        y = int(matched.group(3))
-        if not (0 <= x < field.size_x and 0 <= y < field.size_y):
-            raise ValueError(INVALID_ARGS)
-        
-        word = matched.group(4)
-        name = matched.group(1)
+    stats = {}
+    line = shlex.split(line)
 
-        if name not in field.monster_types and name not in cowsay.list_cows():
-            raise ValueError(UNKNOWN_MONSTER)
-        
-        fl_replaced = (x, y) in field.monsters
-        field.monsters[(x, y)] = {'name': name, 'word': word}
-        print(f"Added monster {name} to ({x}, {y}) saying {word}")
-        if fl_replaced:
-            print("Replaced the old monster")
+    if "addmon" != line[0]:
+        raise ValueError(INVALID_ARGS)
+    if line[1] not in cowsay.list_cows() and line[1] not in field.monster_types:
+        raise ValueError(UNKNOWN_MONSTER)
+    stats['name'] = line[1]
+
+    if 'hello' not in line:
+        raise ValueError(INVALID_ARGS)
+    ind = line.index('hello')
+    stats['hello'] = line[ind + 1]
+
+    ind = line.index('hp')
+    hp = line[ind + 1]
+    if hp.isdigit() and int(hp) > 0:
+        stats['hp'] = int(hp)
     else:
         raise ValueError(INVALID_ARGS)
+
+    ind = line.index('coords')
+    x = int(line[ind + 1])
+    y = int(line[ind + 2])
+    
+    fl_replaced = (x, y) in field.monsters
+    field.monsters[(x, y)] = stats
+    print(f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}")
+    if fl_replaced:
+        print("Replaced the old monster")
+
 
 
 def encounter(field, x, y):
     if field.monsters[(x, y)]['name'] in field.monster_types:
         monster = field.monster_types[field.monsters[(x, y)]['name']]
-        print(cowsay.cowsay(field.monsters[(x, y)]['word'], cowfile=monster))
+        print(cowsay.cowsay(field.monsters[(x, y)]['hello'], cowfile=monster))
     else:
         monster = field.monsters[(x, y)]['name']
-        print(cowsay.cowsay(field.monsters[(x, y)]['word'], cow=monster))
+        print(cowsay.cowsay(field.monsters[(x, y)]['hello'], cow=monster))
+
 
 
 def player_moving(field, line):
