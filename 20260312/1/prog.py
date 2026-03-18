@@ -101,24 +101,16 @@ def player_moving(field, line):
 
 def player_attack(field, line):
     args = shlex.split(line)
-    weapon = 'sword'
-    if len(args) != 0:
-        if len(args) != 2:
-            print("Invalid arguments")
-            return
-
-        if args[0] != 'with':
-            print("Invalid arguments")
-            return
-        
-        if args[1] not in field.weapons:
-            print("Unknown weapon")
-            return
-
-        weapon = args[1]
-    
+    if len(args) != 3 or args[1] != 'with':
+        print("Invalid arguments")
+        return 
+    monster_name = args[0]
+    weapon = args[2]
+    if weapon not in field.weapons:
+        print("Unknown weapon")
+        return
     if field.player not in field.monsters:
-        print("No monster here")
+        print(f"No {monster_name} here")
         return
 
 
@@ -126,6 +118,11 @@ def player_attack(field, line):
         
     damage = field.weapons[weapon]
     monster = field.monsters[field.player]
+
+    if monster['name'] != monster_name:
+        print(f"No {monster_name} here")
+        return
+
     hp_before = monster['hp']
     hp_after = hp_before - damage if hp_before - damage >= 0 else 0
 
@@ -197,19 +194,25 @@ class MyGame(cmd.Cmd):
         player_attack(self.field, arg)
 
     def complete_attack(self, text, line, begidx, endidx):
-        arg = shlex.split(line)
-        if len(arg) == 1:
+        args = shlex.split(line)
+        all_cows = list(self.field.monster_types.keys()) + cowsay.list_cows()
+        
+        if len(args) == 1:
+            return sorted(all_cows)
+        
+        if len(args) == 2 and not line.endswith(' '):
+            return sorted([nm for nm in all_cows if nm.startswith(text)])
+        
+        if len(args) == 2 and line.endswith(' '):
             return ["with"]
-
-        if len(arg) == 2 and arg[-1] == 'with':
-            return list(self.field.weapons)
-
-        if len(arg) != 3:
-            return []
-        return [wpn for wpn in self.field.weapons if wpn.startswith(text)]
-
-
-
+        
+        if len(args) == 3 and args[2] == "with" and line.endswith(' '):
+            return list(self.field.weapons.keys())
+        
+        if len(args) == 4 and args[2] == "with":
+            return [w for w in self.field.weapons if w.startswith(text)]
+        
+        return []
 
     def emptyline(self):
         pass
