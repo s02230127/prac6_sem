@@ -18,6 +18,7 @@ class Field:
         self.player = (start_x % size_x, start_y % size_y)
         self.monsters = {}
         self.monster_types = {}
+        self.weapons = {}
         self.size_x = size_x
         self.size_y = size_y
 
@@ -98,14 +99,35 @@ def player_moving(field, line):
         encounter(field, x, y)
 
 
-def player_attack(field):
+def player_attack(field, line):
+    args = shlex.split(line)
+    weapon = 'sword'
+    if len(args) != 0:
+        if len(args) != 2:
+            print("Invalid arguments")
+            return
+
+        if args[0] != 'with':
+            print("Invalid arguments")
+            return
+        
+        if args[1] not in field.weapons:
+            print("Unknown weapon")
+            return
+
+        weapon = args[1]
+    
     if field.player not in field.monsters:
         print("No monster here")
         return
-    
+
+
+        
+        
+    damage = field.weapons[weapon]
     monster = field.monsters[field.player]
     hp_before = monster['hp']
-    hp_after = hp_before - 10 if hp_before - 10 >= 0 else 0
+    hp_after = hp_before - damage if hp_before - damage >= 0 else 0
 
     print(f"Attacked {monster['name']},  damage {hp_before - hp_after} hp")
     if hp_after == 0:
@@ -136,12 +158,18 @@ EOC
     field.monster_types['jgsbat'] = jgsbat
 
 
+def set_weapon(field):
+    weapons = {"sword": 10, "spear": 15, "axe": 20}
+    field.weapons = weapons
+
 class MyGame(cmd.Cmd):
     intro = "<<< Welcome to Python-MUD 0.1 >>>"
     prompt = ""
+
     def __init__(self):
         self.field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
         add_monster_type(self.field)
+        set_weapon(self.field)
         super().__init__()
 
     def do_down(self, arg):
@@ -166,7 +194,22 @@ class MyGame(cmd.Cmd):
                 print("Cannot add unknown monster")
 
     def do_attack(self, arg):
-        player_attack(self.field)
+        player_attack(self.field, arg)
+
+    def complete_attack(self, text, line, begidx, endidx):
+        arg = shlex.split(line)
+        if len(arg) == 1:
+            return ["with"]
+
+        if len(arg) == 2 and arg[-1] == 'with':
+            return list(self.field.weapons)
+
+        if len(arg) != 3:
+            return []
+        return [wpn for wpn in self.field.weapons if wpn.startswith(text)]
+
+
+
 
     def emptyline(self):
         pass
