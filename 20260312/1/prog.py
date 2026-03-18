@@ -101,21 +101,23 @@ def player_moving(field, line):
 
 def player_attack(field, line):
     args = shlex.split(line)
-    if len(args) != 3 or args[1] != 'with':
+    if len(args) == 1:
+        monster_name = args[0]
+        weapon = 'sword'
+    elif len(args) == 3 and args[1] == 'with':
+        monster_name = args[0]
+        weapon = args[2]
+    else:
         print("Invalid arguments")
-        return 
-    monster_name = args[0]
-    weapon = args[2]
+        return
+
     if weapon not in field.weapons:
         print("Unknown weapon")
         return
     if field.player not in field.monsters:
         print(f"No {monster_name} here")
         return
-
-
-        
-        
+                
     damage = field.weapons[weapon]
     monster = field.monsters[field.player]
 
