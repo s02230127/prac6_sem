@@ -98,6 +98,24 @@ def player_moving(field, line):
         encounter(field, x, y)
 
 
+def player_attack(field):
+    if field.player not in field.monsters:
+        print("No monster here")
+        return
+    
+    monster = field.monsters[field.player]
+    hp_before = monster['hp']
+    hp_after = hp_before - 10 if hp_before - 10 >= 0 else 0
+
+    print(f"Attacked {monster['name']},  damage {hp_before - hp_after} hp")
+    if hp_after == 0:
+        del field.monsters[field.player]
+        print(f"{monster['name']} died")
+    else:
+        monster['hp'] = hp_after
+        print(f"{monster['name']} now has {monster['hp']}")
+
+
 def add_monster_type(field):
     jgsbat = cowsay.read_dot_cow(StringIO(r"""
 $the_cow = <<EOC;
@@ -146,6 +164,9 @@ class MyGame(cmd.Cmd):
                 print("Invalid arguments")
             elif error.args[0] == UNKNOWN_MONSTER:
                 print("Cannot add unknown monster")
+
+    def do_attack(self, arg):
+        player_attack(self.field)
 
     def emptyline(self):
         pass
