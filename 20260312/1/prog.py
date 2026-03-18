@@ -98,12 +98,22 @@ def player_moving(field, line):
         encounter(field, x, y)
 
 
-def player_attack(field):
+def player_attack(field, line):
+    monster_name = shlex.split(line)
+    if len(monster_name) != 1:
+        print("Invalid arguments")
+        return
+    monster_name = monster_name[0]
     if field.player not in field.monsters:
-        print("No monster here")
+        print(f"No {monster_name} here")
         return
     
     monster = field.monsters[field.player]
+
+    if monster['name'] != monster_name:
+        print(f"No {monster_name} here")
+        return
+
     hp_before = monster['hp']
     hp_after = hp_before - 10 if hp_before - 10 >= 0 else 0
 
@@ -166,8 +176,18 @@ class MyGame(cmd.Cmd):
                 print("Cannot add unknown monster")
 
     def do_attack(self, arg):
-        player_attack(self.field)
-
+        player_attack(self.field, arg)
+ 
+    def complete_attack(self, text, line, begidx, endidx):
+        args = shlex.split(line)
+        all_cows = list(self.field.monster_types.keys()) + cowsay.list_cows()
+        if len(args) == 1:
+            return sorted(all_cows)
+        
+        elif len(args) == 2:
+            return sorted([nm for nm in all_cows if nm.startswith(text)])
+        return []
+    
     def emptyline(self):
         pass
 
