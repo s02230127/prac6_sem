@@ -147,6 +147,21 @@ class MyGame(cmd.Cmd):
             elif error.args[0] == UNKNOWN_MONSTER:
                 print("Cannot add unknown monster")
 
+    def emptyline(self):
+        pass
+
+    def default(self, line):
+        if not line.strip():
+            return
+        print("Unknown command")
+    
+    def do_exit(self, arg):
+        print("Goodbye")
+        return True
+    
+    def do_EOF(self, arg):
+        print("Goodbye")
+        return True
 
 if __name__ == '__main__':
     MyGame().cmdloop()
