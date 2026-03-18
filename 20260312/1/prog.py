@@ -2,6 +2,7 @@ import sys
 from io import StringIO
 import shlex
 import cowsay
+import cmd
 
 SIZE_X = 10
 SIZE_Y = 10
@@ -27,16 +28,14 @@ def field_addmon(field, line):
         line = shlex.split(line)
     except ValueError:
         raise ValueError(INVALID_ARGS)
-    
-    if len(line) != 9:
+
+    if len(line) != 8:
         raise ValueError(INVALID_ARGS)
 
-    if "addmon" != line[0]:
-        raise ValueError(INVALID_ARGS)
-    if line[1] not in cowsay.list_cows() and line[1] not in field.monster_types:
+    if line[0] not in cowsay.list_cows() and line[0] not in field.monster_types:
         raise ValueError(UNKNOWN_MONSTER)
-    stats['name'] = line[1]
-
+    stats['name'] = line[0]
+    
     try:
         ind = line.index('hello')
         stats['hello'] = line[ind + 1]
@@ -99,27 +98,6 @@ def player_moving(field, line):
         encounter(field, x, y)
 
 
-def command_reader(field):
-    for line in sys.stdin:
-        line = line.strip()
-
-        if not line:
-            continue
-
-        if line in ("up", "down", "left", "right"):
-            player_moving(field, line)
-        elif line.split()[0] == "addmon":
-            try:
-                field_addmon(field, line)
-            except ValueError as error:
-                if error.args[0] == INVALID_ARGS:
-                    print("Invalid arguments")
-                elif error.args[0] == UNKNOWN_MONSTER:
-                    print("Cannot add unknown monster")
-        else:
-            print("Invalid command")
-
-
 def add_monster_type(field):
     jgsbat = cowsay.read_dot_cow(StringIO(r"""
 $the_cow = <<EOC;
@@ -140,12 +118,35 @@ EOC
     field.monster_types['jgsbat'] = jgsbat
 
 
-def game():
-    print("<<< Welcome to Python-MUD 0.1 >>>")
-    field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
-    add_monster_type(field)
-    command_reader(field)
+class MyGame(cmd.Cmd):
+    intro = "<<< Welcome to Python-MUD 0.1 >>>"
+    prompt = ""
+    def __init__(self):
+        self.field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
+        add_monster_type(self.field)
+        super().__init__()
+
+    def do_down(self, arg):
+        player_moving(self.field, "down")
+
+    def do_up(self, arg):
+        player_moving(self.field, "up")
+
+    def do_left(self, arg):
+        player_moving(self.field, "left")
+
+    def do_right(self, arg):
+        player_moving(self.field, "right")
+
+    def do_addmon(self, arg):
+        try:
+            field_addmon(self.field, arg)
+        except ValueError as error:
+            if error.args[0] == INVALID_ARGS:
+                print("Invalid arguments")
+            elif error.args[0] == UNKNOWN_MONSTER:
+                print("Cannot add unknown monster")
 
 
 if __name__ == '__main__':
-    game()
+    MyGame().cmdloop()
