@@ -43,6 +43,21 @@ class MUDServer:
             self.field.monster_types.append(data[1])
             msg = '0'
         
+        elif cmd == 'addmon':
+            name = data[1]
+            hp = int(data[2])
+            x, y = int(data[3]), int(data[4])
+            hello = ' '.join(data[5:])
+            stats = {
+                'name': name,
+                'hello': hello,
+                'hp': hp
+            }
+            fl_replaced = (x, y) in self.field.monsters
+            self.field.monsters[(x, y)] = stats
+            msg = f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}"
+            if fl_replaced:
+                msg = "Replaced the old monster" + '\t' + msg        
         msg += '\n'
         return msg
         
