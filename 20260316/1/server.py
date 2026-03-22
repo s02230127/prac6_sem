@@ -3,7 +3,7 @@ import cowsay
 
 
 HOST = "localhost"
-PORT = 7778
+PORT = 7779
 
 SIZE_X = 10
 SIZE_Y = 10
@@ -15,9 +15,9 @@ class Field:
         self.player = (start_x % size_x, start_y % size_y)
         self.monsters = {}
         self.monster_types = []
-        self.weapons = {}
         self.size_x = size_x
         self.size_y = size_y
+        self.weapons = {"sword": 10, "spear": 15, "axe": 20}
 
 
 class MUDServer:
@@ -57,7 +57,32 @@ class MUDServer:
             self.field.monsters[(x, y)] = stats
             msg = f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}"
             if fl_replaced:
-                msg = "Replaced the old monster" + '\t' + msg        
+                msg = "Replaced the old monster" + '\t' + msg
+
+        elif cmd == "attack":
+            name = data[1]
+            weapon = data[2]
+            if self.field.player not in self.field.monsters:
+                msg = f"No {name} here\n"
+                return msg
+        
+            damage = self.field.weapons[weapon]
+            monster = self.field.monsters[self.field.player]
+
+            if monster['name'] != name:
+                msg = f"No {name} here\n"
+                return msg
+
+            hp_before = monster['hp']
+            hp_after = hp_before - damage if hp_before - damage >= 0 else 0
+
+            msg = (f"Attacked {monster['name']}, damage {hp_before - hp_after} hp\t")
+            if hp_after == 0:
+                del self.field.monsters[self.field.player]
+                msg += f"{monster['name']} died"
+            else:
+                monster['hp'] = hp_after
+                msg += f"{monster['name']} now has {monster['hp']}"
         msg += '\n'
         return msg
         
@@ -73,8 +98,6 @@ class MUDServer:
                 ans = self.command_handler(data)
                 writer.write(ans.encode())
                 await writer.drain()
-            writer.close()
-            await writer.wait_closed()
         finally:
             print(f"Client disconnected: {addr}")
             writer.close()
@@ -82,6 +105,7 @@ class MUDServer:
     
     async def run(self, host, port):
         server = await asyncio.start_server(self.handle_client, host, port)
+        print("Server is started")
         async with server:
             await server.serve_forever()
 
