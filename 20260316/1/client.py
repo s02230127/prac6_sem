@@ -3,7 +3,7 @@ import cmd
 import shlex
 import cowsay
 from io import StringIO
-
+import json
 
 HOST = "localhost"
 PORT = 7779
@@ -33,34 +33,31 @@ class MUDClient(cmd.Cmd):
 
         self.add_monster_type()
 
-
     def _send(self, msg):
-        self.sock.sendall(msg.encode())
+        msg = (json.dumps(msg) + '\n').encode()
+        self.sock.sendall(msg)
         response = self.sockfile.readline()
         if not response:
             raise ConnectionError("Server disconnected")
-        return response.strip()
+        return json.loads(response.strip())
     
     def _close(self):
         self.sockfile.close()
         self.sock.close()
 
     def player_moving(self, dx, dy):
-        cmd = "move " + str(dx) + " " + str(dy) + '\n'
+        cmd = {'cmd': "move", 'dx': dx, 'dy': dy}
         ans = self._send(cmd)
-        if '\t' in ans:
-            ans = ans.split('\t', maxsplit=2)
-            print(ans[0])
-            name = ans[1]
-            hello = ans[2]
+        print(ans["msg0"])
+        if 'name' in ans:
+            name = ans['name']
+            hello = ans['hello']
             if name in self.field.custom_monsters:
                 monster = self.field.custom_monsters[name]
                 print(cowsay.cowsay(hello, cowfile=monster))
             else:
                 monster = name
                 print(cowsay.cowsay(hello, cow=monster))
-        else:
-            print(ans)
 
     def field_addmon(self, line):
         try:
@@ -101,22 +98,27 @@ class MUDClient(cmd.Cmd):
         except (IndexError, ValueError):
             raise ValueError(INVALID_ARGS)
 
-        cmd = f"addmon {name} {hp} {x} {y} {hello}\n"
+        cmd = {
+            "cmd": "addmon",
+            "name": name,
+            "hp": hp,
+            "x": x,
+            "y": y,
+            "hello": hello
+        }
+        
         ans = self._send(cmd)
-        if ans.startswith("Replaced the old monster"):
-            ans = ans.split('\t', maxsplit=1)
-            print(ans[1])
-            print(ans[0])
-        else:
-            print(ans)
+        print(ans["msg0"])
+        if "msg1" in ans:
+            print(ans["msg1"])
 
     def player_attack(self, line):
         args = shlex.split(line)
         if len(args) == 1:
-            monster_name = args[0]
+            name = args[0]
             weapon = 'sword'
         elif len(args) == 3 and args[1] == 'with':
-            monster_name = args[0]
+            name = args[0]
             weapon = args[2]
         else:
             print("Invalid arguments")
@@ -125,12 +127,16 @@ class MUDClient(cmd.Cmd):
         if weapon not in self.field.weapons:
             print("Unknown weapon")
             return
-        
-        msg = f"attack {monster_name} {weapon}\n"
-        ans = self._send(msg)
-        ans = ans.split('\t')
-        for i in ans:
-            print(i)
+    
+        cmd = {
+            "cmd": "attack", 
+            "name": name, 
+            "weapon": weapon
+        }
+        ans = self._send(cmd)
+        print(ans["msg0"])
+        if "msg1" in ans:
+            print(ans["msg1"])
 
     def add_monster_type(self):
         jgsbat = cowsay.read_dot_cow(StringIO(r"""
@@ -150,7 +156,10 @@ EOC
     """))
     
         self.field.custom_monsters['jgsbat'] = jgsbat
-        cmd = f"new_custom_monster jgsbat\n"
+        cmd = {
+            "cmd": "new_custom_monster",
+            "name": "jgsbat"
+        }
         self._send(cmd)
 
     def do_down(self, arg):
