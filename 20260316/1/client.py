@@ -1,11 +1,12 @@
 import socket
-import sys
 import cmd
 import shlex
 import cowsay
+from io import StringIO
+
 
 HOST = "localhost"
-PORT = 7778
+PORT = 7779
 
 UNKNOWN_MONSTER = 1
 INVALID_ARGS = 2
@@ -14,12 +15,12 @@ INVALID_ARGS = 2
 class Field_attributes:
     def __init__(self):
         self.monsters = cowsay.list_cows()
-        self.custom__monsters = {}
+        self.custom_monsters = {}
         self.size_x = 10
         self.size_y = 10
-        self.weapons = ["weapon", "axe", "sword"]
+        self.weapons = ["spear", "axe", "sword"]
 
-class MUDCLient(cmd.Cmd):
+class MUDClient(cmd.Cmd):
     intro = "<<< Welcome to Python-MUD 0.1 >>>"
     prompt = ""
 
@@ -29,6 +30,8 @@ class MUDCLient(cmd.Cmd):
         self.sockfile = self.sock.makefile('r')
         self.field = Field_attributes()
         super().__init__()
+
+        self.add_monster_type()
 
 
     def _send(self, msg):
@@ -42,17 +45,16 @@ class MUDCLient(cmd.Cmd):
         self.sockfile.close()
         self.sock.close()
 
-
-
     def player_moving(self, dx, dy):
         cmd = "move " + str(dx) + " " + str(dy) + '\n'
         ans = self._send(cmd)
         if '\t' in ans:
             ans = ans.split('\t', maxsplit=2)
+            print(ans[0])
             name = ans[1]
             hello = ans[2]
-            if name in self.field.custom__monsters:
-                monster = self.field.custom__monsters[name]
+            if name in self.field.custom_monsters:
+                monster = self.field.custom_monsters[name]
                 print(cowsay.cowsay(hello, cowfile=monster))
             else:
                 monster = name
@@ -69,7 +71,7 @@ class MUDCLient(cmd.Cmd):
         if len(line) != 8:
             raise ValueError(INVALID_ARGS)
 
-        if line[0] not in self.field.monsters and line[0] not in self.field.custom__monsters:
+        if line[0] not in self.field.monsters and line[0] not in self.field.custom_monsters:
             raise ValueError(UNKNOWN_MONSTER)
         name = line[0]
         
@@ -108,6 +110,49 @@ class MUDCLient(cmd.Cmd):
         else:
             print(ans)
 
+    def player_attack(self, line):
+        args = shlex.split(line)
+        if len(args) == 1:
+            monster_name = args[0]
+            weapon = 'sword'
+        elif len(args) == 3 and args[1] == 'with':
+            monster_name = args[0]
+            weapon = args[2]
+        else:
+            print("Invalid arguments")
+            return
+
+        if weapon not in self.field.weapons:
+            print("Unknown weapon")
+            return
+        
+        msg = f"attack {monster_name} {weapon}\n"
+        ans = self._send(msg)
+        ans = ans.split('\t')
+        for i in ans:
+            print(i)
+
+    def add_monster_type(self):
+        jgsbat = cowsay.read_dot_cow(StringIO(r"""
+$the_cow = <<EOC;
+        $thoughts
+            $thoughts
+    ,_                    _,
+    ) '-._  ,_    _,  _.-' (
+    )  _.-'.|\\\--//|.'-._  (
+     )'   .'\/o\/o\/'.   `(
+      ) .' . \====/ . '. (
+       )  / <<    >> \  (
+        '-._/``  ``\_.-'
+  jgs     __\\\'--'//__
+         (((""`  `"")))
+EOC
+    """))
+    
+        self.field.custom_monsters['jgsbat'] = jgsbat
+        cmd = f"new_custom_monster jgsbat\n"
+        self._send(cmd)
+
     def do_down(self, arg):
         self.player_moving(0, 1)
 
@@ -128,6 +173,30 @@ class MUDCLient(cmd.Cmd):
                 print("Invalid arguments")
             elif error.args[0] == UNKNOWN_MONSTER:
                 print("Cannot add unknown monster")
+
+    def do_attack(self, arg):
+        self.player_attack(arg)
+    
+    def complete_attack(self, text, line, begidx, endidx):
+        args = shlex.split(line)
+        all_cows = list(self.field.custom_monsters.keys()) + self.field.monsters
+        
+        if len(args) == 1:
+            return sorted(all_cows)
+        
+        if len(args) == 2 and not line.endswith(' '):
+            return sorted([nm for nm in all_cows if nm.startswith(text)])
+        
+        if len(args) == 2 and line.endswith(' '):
+            return ["with"]
+        
+        if len(args) == 3 and args[2] == "with" and line.endswith(' '):
+            return list(self.field.weapons)
+        
+        if len(args) == 4 and args[2] == "with":
+            return [w for w in self.field.weapons if w.startswith(text)]
+        
+        return []
 
     def emptyline(self):
         pass
@@ -150,6 +219,6 @@ class MUDCLient(cmd.Cmd):
 
 if __name__ == '__main__':
     try:
-        MUDCLient(HOST, PORT).cmdloop()
+        MUDClient(HOST, PORT).cmdloop()
     except ConnectionRefusedError:
         print(f"Cannot connect to {HOST}:{PORT}")
