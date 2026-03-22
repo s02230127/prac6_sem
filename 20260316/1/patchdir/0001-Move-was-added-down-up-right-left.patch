@@ -1,0 +1,176 @@
+From 97e09d027d39db9fe96e652abd37421c34c04725 Mon Sep 17 00:00:00 2001
+From: Alex_kl <iissmirnov1995@gmail.com>
+Date: Sun, 22 Mar 2026 01:29:27 +0300
+Subject: [PATCH 1/4] Move was added (down, up, right, left)
+
+---
+ 20260316/1/client.py | 71 ++++++++++++++++++++++++++++++++++++++++
+ 20260316/1/server.py | 77 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 148 insertions(+)
+ create mode 100644 20260316/1/client.py
+ create mode 100644 20260316/1/server.py
+
+diff --git a/20260316/1/client.py b/20260316/1/client.py
+new file mode 100644
+index 0000000..f39749e
+--- /dev/null
++++ b/20260316/1/client.py
+@@ -0,0 +1,71 @@
++import socket
++import sys
++import cmd
++
++HOST = "localhost"
++PORT = 7778
++
++class MUDCLient(cmd.Cmd):
++    intro = "<<< Welcome to Python-MUD 0.1 >>>"
++    prompt = ""
++
++    def __init__(self, host, port):
++        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++        self.sock.connect((host, port))
++        self.sockfile = self.sock.makefile('r')
++        self._monster_names = None
++        self._custom_cows = {}
++        super().__init__()
++
++    def _send(self, msg):
++        self.sock.sendall(msg.encode())
++        response = self.sockfile.readline()
++        if not response:
++            raise ConnectionError("Server disconnected")
++        return response.strip()
++    
++    def _close(self):
++        self.sockfile.close()
++        self.sock.close()
++
++    def player_moving(self, dx, dy):
++        cmd = "move " + str(dx) + " " + str(dy) + '\n'
++        ans = self._send(cmd)
++        print(ans)
++
++    def do_down(self, arg):
++        self.player_moving(0, 1)
++
++    def do_up(self, arg):
++        self.player_moving(0, -1)
++
++    def do_left(self, arg):
++        self.player_moving(-1, 0)
++
++    def do_right(self, arg):
++        self.player_moving(1, 0)
++
++    def emptyline(self):
++        pass
++
++    def default(self, line):
++        if not line.strip():
++            return
++        print("Unknown command")
++    
++    def do_exit(self, arg):
++        print("Goodbye")
++        self._close()
++        return True
++    
++    def do_EOF(self, arg):
++        self._close()
++        print("Goodbye")
++        return True
++
++
++if __name__ == '__main__':
++    try:
++        MUDCLient(HOST, PORT).cmdloop()
++    except ConnectionRefusedError:
++        print(f"Cannot connect to {HOST}:{PORT}")
+\ No newline at end of file
+diff --git a/20260316/1/server.py b/20260316/1/server.py
+new file mode 100644
+index 0000000..f332b79
+--- /dev/null
++++ b/20260316/1/server.py
+@@ -0,0 +1,77 @@
++import asyncio
++import cowsay
++
++
++HOST = "localhost"
++PORT = 7778
++
++SIZE_X = 10
++SIZE_Y = 10
++START_X = 0
++START_Y = 0
++
++class Field:
++    def __init__(self, size_x=10, size_y=10, start_x=0, start_y=0):
++        self.player = (start_x % size_x, start_y % size_y)
++        self.monsters = {}
++        self.monster_types = []
++        self.weapons = {}
++        self.size_x = size_x
++        self.size_y = size_y
++
++
++class MUDServer:
++    def __init__(self):
++        self.field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
++        
++    def command_handler(self, data):
++        data = data.decode().strip().split()
++        cmd = data[0]
++        msg = ''
++        if cmd == 'move':
++            x = (int(data[1]) + self.field.player[0]) % self.field.size_x
++            y = (int(data[2]) + self.field.player[1]) % self.field.size_y
++            self.field.player = (x, y)
++            msg += f"Moved to ({x}, {y})"
++            if self.field.player in self.field.monsters:
++                msg += '\t' + self.field.monsters[(x, y)]['name'] + '\t' + self.field.monsters[(x, y)]['hello']
++                
++        elif cmd == 'get_monsters':
++            msg = '\t'.join(cowsay.list_cows() + list(self.field.monster_types))
++        
++        elif cmd == 'new_custom_monster':
++            self.field.monster_types.append(data[1])
++            msg = '0'
++        
++        msg += '\n'
++        return msg
++        
++        
++    async def handle_client(self, reader, writer):
++        addr = writer.get_extra_info('peername')
++        print(f"Client connected: {addr}")
++        try:
++            while True:
++                data = await reader.readline()
++                if not data:
++                    break
++                ans = self.command_handler(data)
++                writer.write(ans.encode())
++                await writer.drain()
++            writer.close()
++            await writer.wait_closed()
++        finally:
++            print(f"Client disconnected: {addr}")
++            writer.close()
++            await writer.wait_closed()
++    
++    async def run(self, host, port):
++        server = await asyncio.start_server(self.handle_client, host, port)
++        async with server:
++            await server.serve_forever()
++
++
++
++if __name__ == '__main__':
++    mud = MUDServer()
++    asyncio.run(mud.run(HOST, PORT))
+-- 
+2.51.0
+

@@ -1,0 +1,260 @@
+From 6fadf9256520b5b00895029b95d44097a48f550b Mon Sep 17 00:00:00 2001
+From: Alex_kl <iissmirnov1995@gmail.com>
+Date: Sun, 22 Mar 2026 04:50:50 +0300
+Subject: [PATCH 4/4] remade with JSON
+
+---
+ 20260316/1/client.py | 65 +++++++++++++++++++++++++-------------------
+ 20260316/1/server.py | 65 ++++++++++++++++++++++----------------------
+ 2 files changed, 69 insertions(+), 61 deletions(-)
+
+diff --git a/20260316/1/client.py b/20260316/1/client.py
+index f91ba44..ce12bda 100644
+--- a/20260316/1/client.py
++++ b/20260316/1/client.py
+@@ -3,7 +3,7 @@ import cmd
+ import shlex
+ import cowsay
+ from io import StringIO
+-
++import json
+ 
+ HOST = "localhost"
+ PORT = 7779
+@@ -33,34 +33,31 @@ class MUDClient(cmd.Cmd):
+ 
+         self.add_monster_type()
+ 
+-
+     def _send(self, msg):
+-        self.sock.sendall(msg.encode())
++        msg = (json.dumps(msg) + '\n').encode()
++        self.sock.sendall(msg)
+         response = self.sockfile.readline()
+         if not response:
+             raise ConnectionError("Server disconnected")
+-        return response.strip()
++        return json.loads(response.strip())
+     
+     def _close(self):
+         self.sockfile.close()
+         self.sock.close()
+ 
+     def player_moving(self, dx, dy):
+-        cmd = "move " + str(dx) + " " + str(dy) + '\n'
++        cmd = {'cmd': "move", 'dx': dx, 'dy': dy}
+         ans = self._send(cmd)
+-        if '\t' in ans:
+-            ans = ans.split('\t', maxsplit=2)
+-            print(ans[0])
+-            name = ans[1]
+-            hello = ans[2]
++        print(ans["msg0"])
++        if 'name' in ans:
++            name = ans['name']
++            hello = ans['hello']
+             if name in self.field.custom_monsters:
+                 monster = self.field.custom_monsters[name]
+                 print(cowsay.cowsay(hello, cowfile=monster))
+             else:
+                 monster = name
+                 print(cowsay.cowsay(hello, cow=monster))
+-        else:
+-            print(ans)
+ 
+     def field_addmon(self, line):
+         try:
+@@ -101,22 +98,27 @@ class MUDClient(cmd.Cmd):
+         except (IndexError, ValueError):
+             raise ValueError(INVALID_ARGS)
+ 
+-        cmd = f"addmon {name} {hp} {x} {y} {hello}\n"
++        cmd = {
++            "cmd": "addmon",
++            "name": name,
++            "hp": hp,
++            "x": x,
++            "y": y,
++            "hello": hello
++        }
++        
+         ans = self._send(cmd)
+-        if ans.startswith("Replaced the old monster"):
+-            ans = ans.split('\t', maxsplit=1)
+-            print(ans[1])
+-            print(ans[0])
+-        else:
+-            print(ans)
++        print(ans["msg0"])
++        if "msg1" in ans:
++            print(ans["msg1"])
+ 
+     def player_attack(self, line):
+         args = shlex.split(line)
+         if len(args) == 1:
+-            monster_name = args[0]
++            name = args[0]
+             weapon = 'sword'
+         elif len(args) == 3 and args[1] == 'with':
+-            monster_name = args[0]
++            name = args[0]
+             weapon = args[2]
+         else:
+             print("Invalid arguments")
+@@ -125,12 +127,16 @@ class MUDClient(cmd.Cmd):
+         if weapon not in self.field.weapons:
+             print("Unknown weapon")
+             return
+-        
+-        msg = f"attack {monster_name} {weapon}\n"
+-        ans = self._send(msg)
+-        ans = ans.split('\t')
+-        for i in ans:
+-            print(i)
++    
++        cmd = {
++            "cmd": "attack", 
++            "name": name, 
++            "weapon": weapon
++        }
++        ans = self._send(cmd)
++        print(ans["msg0"])
++        if "msg1" in ans:
++            print(ans["msg1"])
+ 
+     def add_monster_type(self):
+         jgsbat = cowsay.read_dot_cow(StringIO(r"""
+@@ -150,7 +156,10 @@ EOC
+     """))
+     
+         self.field.custom_monsters['jgsbat'] = jgsbat
+-        cmd = f"new_custom_monster jgsbat\n"
++        cmd = {
++            "cmd": "new_custom_monster",
++            "name": "jgsbat"
++        }
+         self._send(cmd)
+ 
+     def do_down(self, arg):
+diff --git a/20260316/1/server.py b/20260316/1/server.py
+index cfd7119..e9dc3aa 100644
+--- a/20260316/1/server.py
++++ b/20260316/1/server.py
+@@ -1,6 +1,6 @@
+ import asyncio
+ import cowsay
+-
++import json
+ 
+ HOST = "localhost"
+ PORT = 7779
+@@ -25,29 +25,30 @@ class MUDServer:
+         self.field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
+         
+     def command_handler(self, data):
+-        data = data.decode().strip().split()
+-        cmd = data[0]
+-        msg = ''
++        data = json.loads(data.decode().strip())
++
++        cmd = data['cmd']
++        ans = {}
++        ind_msg = 0
+         if cmd == 'move':
+-            x = (int(data[1]) + self.field.player[0]) % self.field.size_x
+-            y = (int(data[2]) + self.field.player[1]) % self.field.size_y
++            x = (int(data['dx']) + self.field.player[0]) % self.field.size_x
++            y = (int(data['dy']) + self.field.player[1]) % self.field.size_y
+             self.field.player = (x, y)
+-            msg += f"Moved to ({x}, {y})"
++            ans[f"msg{ind_msg}"] = f"Moved to ({x}, {y})"
++            ind_msg += 1
+             if self.field.player in self.field.monsters:
+-                msg += '\t' + self.field.monsters[(x, y)]['name'] + '\t' + self.field.monsters[(x, y)]['hello']
++                ans['name'] = self.field.monsters[(x, y)]['name'] 
++                ans['hello'] = self.field.monsters[(x, y)]['hello']
+                 
+-        elif cmd == 'get_monsters':
+-            msg = '\t'.join(cowsay.list_cows() + list(self.field.monster_types))
+-        
+         elif cmd == 'new_custom_monster':
+-            self.field.monster_types.append(data[1])
+-            msg = '0'
++            self.field.monster_types.append(data['name'])
++            ans['res'] = 0
+         
+         elif cmd == 'addmon':
+-            name = data[1]
+-            hp = int(data[2])
+-            x, y = int(data[3]), int(data[4])
+-            hello = ' '.join(data[5:])
++            name = data['name']
++            hp = int(data['hp'])
++            x, y = int(data['x']), int(data['y'])
++            hello = data['hello']
+             stats = {
+                 'name': name,
+                 'hello': hello,
+@@ -55,37 +56,36 @@ class MUDServer:
+             }
+             fl_replaced = (x, y) in self.field.monsters
+             self.field.monsters[(x, y)] = stats
+-            msg = f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}"
++            ans[f"msg{ind_msg}"] = f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}"
++            ind_msg += 1
+             if fl_replaced:
+-                msg = "Replaced the old monster" + '\t' + msg
++                ans[f"msg{ind_msg}"] = "Replaced the old monster"
+ 
+         elif cmd == "attack":
+-            name = data[1]
+-            weapon = data[2]
++            name = data['name']
++            weapon = data['weapon']
+             if self.field.player not in self.field.monsters:
+-                msg = f"No {name} here\n"
+-                return msg
++                ans[f"msg{ind_msg}"] = f"No {name} here"
++                return json.dumps(ans) + '\n'
+         
+             damage = self.field.weapons[weapon]
+             monster = self.field.monsters[self.field.player]
+ 
+             if monster['name'] != name:
+-                msg = f"No {name} here\n"
+-                return msg
+-
++                ans[f"msg{ind_msg}"] = f"No {name} here"
++                return json.dumps(ans) + '\n'
+             hp_before = monster['hp']
+             hp_after = hp_before - damage if hp_before - damage >= 0 else 0
+ 
+-            msg = (f"Attacked {monster['name']}, damage {hp_before - hp_after} hp\t")
++            ans[f"msg{ind_msg}"] = f"Attacked {monster['name']}, damage {hp_before - hp_after} hp"
++            ind_msg += 1
+             if hp_after == 0:
+                 del self.field.monsters[self.field.player]
+-                msg += f"{monster['name']} died"
++                ans[f"msg{ind_msg}"] = f"{monster['name']} died"
+             else:
+                 monster['hp'] = hp_after
+-                msg += f"{monster['name']} now has {monster['hp']}"
+-        msg += '\n'
+-        return msg
+-        
++                ans[f"msg{ind_msg}"] = f"{monster['name']} now has {monster['hp']}"
++        return json.dumps(ans) + '\n'
+         
+     async def handle_client(self, reader, writer):
+         addr = writer.get_extra_info('peername')
+@@ -110,7 +110,6 @@ class MUDServer:
+             await server.serve_forever()
+ 
+ 
+-
+ if __name__ == '__main__':
+     mud = MUDServer()
+     asyncio.run(mud.run(HOST, PORT))
+-- 
+2.51.0
+
