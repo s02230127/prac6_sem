@@ -1,6 +1,6 @@
 import asyncio
 import cowsay
-
+import json
 
 HOST = "localhost"
 PORT = 7779
@@ -25,29 +25,30 @@ class MUDServer:
         self.field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
         
     def command_handler(self, data):
-        data = data.decode().strip().split()
-        cmd = data[0]
-        msg = ''
+        data = json.loads(data.decode().strip())
+
+        cmd = data['cmd']
+        ans = {}
+        ind_msg = 0
         if cmd == 'move':
-            x = (int(data[1]) + self.field.player[0]) % self.field.size_x
-            y = (int(data[2]) + self.field.player[1]) % self.field.size_y
+            x = (int(data['dx']) + self.field.player[0]) % self.field.size_x
+            y = (int(data['dy']) + self.field.player[1]) % self.field.size_y
             self.field.player = (x, y)
-            msg += f"Moved to ({x}, {y})"
+            ans[f"msg{ind_msg}"] = f"Moved to ({x}, {y})"
+            ind_msg += 1
             if self.field.player in self.field.monsters:
-                msg += '\t' + self.field.monsters[(x, y)]['name'] + '\t' + self.field.monsters[(x, y)]['hello']
+                ans['name'] = self.field.monsters[(x, y)]['name'] 
+                ans['hello'] = self.field.monsters[(x, y)]['hello']
                 
-        elif cmd == 'get_monsters':
-            msg = '\t'.join(cowsay.list_cows() + list(self.field.monster_types))
-        
         elif cmd == 'new_custom_monster':
-            self.field.monster_types.append(data[1])
-            msg = '0'
+            self.field.monster_types.append(data['name'])
+            ans['res'] = 0
         
         elif cmd == 'addmon':
-            name = data[1]
-            hp = int(data[2])
-            x, y = int(data[3]), int(data[4])
-            hello = ' '.join(data[5:])
+            name = data['name']
+            hp = int(data['hp'])
+            x, y = int(data['x']), int(data['y'])
+            hello = data['hello']
             stats = {
                 'name': name,
                 'hello': hello,
@@ -55,37 +56,36 @@ class MUDServer:
             }
             fl_replaced = (x, y) in self.field.monsters
             self.field.monsters[(x, y)] = stats
-            msg = f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}"
+            ans[f"msg{ind_msg}"] = f"Added monster {stats['name']} to ({x}, {y}) saying {stats['hello']}"
+            ind_msg += 1
             if fl_replaced:
-                msg = "Replaced the old monster" + '\t' + msg
+                ans[f"msg{ind_msg}"] = "Replaced the old monster"
 
         elif cmd == "attack":
-            name = data[1]
-            weapon = data[2]
+            name = data['name']
+            weapon = data['weapon']
             if self.field.player not in self.field.monsters:
-                msg = f"No {name} here\n"
-                return msg
+                ans[f"msg{ind_msg}"] = f"No {name} here"
+                return json.dumps(ans) + '\n'
         
             damage = self.field.weapons[weapon]
             monster = self.field.monsters[self.field.player]
 
             if monster['name'] != name:
-                msg = f"No {name} here\n"
-                return msg
-
+                ans[f"msg{ind_msg}"] = f"No {name} here"
+                return json.dumps(ans) + '\n'
             hp_before = monster['hp']
             hp_after = hp_before - damage if hp_before - damage >= 0 else 0
 
-            msg = (f"Attacked {monster['name']}, damage {hp_before - hp_after} hp\t")
+            ans[f"msg{ind_msg}"] = f"Attacked {monster['name']}, damage {hp_before - hp_after} hp"
+            ind_msg += 1
             if hp_after == 0:
                 del self.field.monsters[self.field.player]
-                msg += f"{monster['name']} died"
+                ans[f"msg{ind_msg}"] = f"{monster['name']} died"
             else:
                 monster['hp'] = hp_after
-                msg += f"{monster['name']} now has {monster['hp']}"
-        msg += '\n'
-        return msg
-        
+                ans[f"msg{ind_msg}"] = f"{monster['name']} now has {monster['hp']}"
+        return json.dumps(ans) + '\n'
         
     async def handle_client(self, reader, writer):
         addr = writer.get_extra_info('peername')
@@ -108,7 +108,6 @@ class MUDServer:
         print("Server is started")
         async with server:
             await server.serve_forever()
-
 
 
 if __name__ == '__main__':
