@@ -23,9 +23,7 @@ class Field_attributes:
         self.weapons = ["spear", "axe", "sword"]
 
 class MUDClient(cmd.Cmd):
-    intro = "<<< Welcome to Python-MUD 0.1 >>>"
     prompt = ""
-
     def __init__(self, host, port, name):
         super().__init__()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -63,18 +61,21 @@ class MUDClient(cmd.Cmd):
 
     def _receiver(self):
         buf = b''
-        while True:
-            while b'\0' not in buf:
-                rcv = self.sock.recv(4096)
-                if not rcv:
-                    return
-                buf += rcv
-            msg, buf = buf.split(b'\0', maxsplit=1)
-            with self.print_lock:
-                if readline.get_line_buffer():
-                    print()
-                print(msg.decode(), end='')
-                print(readline.get_line_buffer(), end='', flush=True)
+        try:
+            while True:
+                while b'\0' not in buf:
+                    rcv = self.sock.recv(4096)
+                    if not rcv:
+                        return
+                    buf += rcv
+                msg, buf = buf.split(b'\0', maxsplit=1)
+                with self.print_lock:
+                    if readline.get_line_buffer():
+                        print()
+                    print(msg.decode(), end='')
+                    print(readline.get_line_buffer(), end='', flush=True)
+        except OSError:
+            pass
         
     def _close(self):
         self.sock.close()
@@ -176,8 +177,6 @@ class MUDClient(cmd.Cmd):
             with self.print_lock:
                 if error.args[0] == INVALID_ARGS:
                     print("Invalid arguments")
-                elif error.args[0] == UNKNOWN_MONSTER:
-                    print("Cannot add unknown monster")
 
     def do_attack(self, arg):
         self.player_attack(arg)
@@ -226,11 +225,13 @@ class MUDClient(cmd.Cmd):
 
 
 if __name__ == '__main__':
+    print("<<< Welcome to Python-MUD 0.1 >>>")
     try:
         if len(sys.argv) < 2:
             print("Error. No name")
             sys.exit(0)
         name = sys.argv[1]
+
         MUDClient(HOST, PORT, name).cmdloop()
     except ConnectionRefusedError:
         print(f"Cannot connect to {HOST}:{PORT}")
