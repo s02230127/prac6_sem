@@ -4,18 +4,20 @@ import shlex
 import cowsay
 from io import StringIO
 import json
+import sys
+import threading
+import readline
 
 HOST = "localhost"
 PORT = 7779
 
-UNKNOWN_MONSTER = 1
 INVALID_ARGS = 2
 
 
 class Field_attributes:
     def __init__(self):
         self.monsters = cowsay.list_cows()
-        self.custom_monsters = {}
+        self.custom_monsters = ["jgsbat"]
         self.size_x = 10
         self.size_y = 10
         self.weapons = ["spear", "axe", "sword"]
@@ -24,40 +26,62 @@ class MUDClient(cmd.Cmd):
     intro = "<<< Welcome to Python-MUD 0.1 >>>"
     prompt = ""
 
-    def __init__(self, host, port):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
-        self.sockfile = self.sock.makefile('r')
-        self.field = Field_attributes()
+    def __init__(self, host, port, name):
         super().__init__()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.print_lock = threading.Lock()
+        self.sock.connect((host, port))
+        self._register(name)
+        self.field = Field_attributes()
+        self.recv_thread = threading.Thread(target=self._receiver, daemon=True)
+        self.recv_thread.start()
 
-        self.add_monster_type()
+        
+
+    def _register(self, name):
+        cmd = {
+            'cmd': "reg",
+            'name': name
+        }
+        self._send(cmd)
+        buf = b''
+        rcv = b''
+        while rcv != b'\0':
+            rcv = self.sock.recv(1)
+            buf += rcv
+        msg = buf.decode()
+        if msg.startswith("Registration denied"):
+            print(msg, end='')
+            self._close()
+            sys.exit(0)
+        else:
+            print(buf.decode(), end='')
 
     def _send(self, msg):
         msg = (json.dumps(msg) + '\n').encode()
         self.sock.sendall(msg)
-        response = self.sockfile.readline()
-        if not response:
-            raise ConnectionError("Server disconnected")
-        return json.loads(response.strip())
-    
+
+    def _receiver(self):
+        buf = b''
+        while True:
+            while b'\0' not in buf:
+                rcv = self.sock.recv(4096)
+                if not rcv:
+                    return
+                buf += rcv
+            msg, buf = buf.split(b'\0', maxsplit=1)
+            with self.print_lock:
+                if readline.get_line_buffer():
+                    print()
+                print(msg.decode(), end='')
+                print(readline.get_line_buffer(), end='', flush=True)
+        
     def _close(self):
-        self.sockfile.close()
         self.sock.close()
 
     def player_moving(self, dx, dy):
         cmd = {'cmd': "move", 'dx': dx, 'dy': dy}
-        ans = self._send(cmd)
-        print(ans["msg0"])
-        if 'name' in ans:
-            name = ans['name']
-            hello = ans['hello']
-            if name in self.field.custom_monsters:
-                monster = self.field.custom_monsters[name]
-                print(cowsay.cowsay(hello, cowfile=monster))
-            else:
-                monster = name
-                print(cowsay.cowsay(hello, cow=monster))
+        self._send(cmd)
 
     def field_addmon(self, line):
         try:
@@ -67,9 +91,6 @@ class MUDClient(cmd.Cmd):
 
         if len(line) != 8:
             raise ValueError(INVALID_ARGS)
-
-        if line[0] not in self.field.monsters and line[0] not in self.field.custom_monsters:
-            raise ValueError(UNKNOWN_MONSTER)
         name = line[0]
         
         try:
@@ -107,10 +128,8 @@ class MUDClient(cmd.Cmd):
             "hello": hello
         }
         
-        ans = self._send(cmd)
-        print(ans["msg0"])
-        if "msg1" in ans:
-            print(ans["msg1"])
+        self._send(cmd)
+
 
     def player_attack(self, line):
         args = shlex.split(line)
@@ -121,11 +140,13 @@ class MUDClient(cmd.Cmd):
             name = args[0]
             weapon = args[2]
         else:
-            print("Invalid arguments")
+            with self.print_lock:
+                print("Invalid arguments")
             return
 
         if weapon not in self.field.weapons:
-            print("Unknown weapon")
+            with self.print_lock:
+                print("Unknown weapon")
             return
     
         cmd = {
@@ -133,34 +154,8 @@ class MUDClient(cmd.Cmd):
             "name": name, 
             "weapon": weapon
         }
-        ans = self._send(cmd)
-        print(ans["msg0"])
-        if "msg1" in ans:
-            print(ans["msg1"])
-
-    def add_monster_type(self):
-        jgsbat = cowsay.read_dot_cow(StringIO(r"""
-$the_cow = <<EOC;
-        $thoughts
-            $thoughts
-    ,_                    _,
-    ) '-._  ,_    _,  _.-' (
-    )  _.-'.|\\\--//|.'-._  (
-     )'   .'\/o\/o\/'.   `(
-      ) .' . \====/ . '. (
-       )  / <<    >> \  (
-        '-._/``  ``\_.-'
-  jgs     __\\\'--'//__
-         (((""`  `"")))
-EOC
-    """))
-    
-        self.field.custom_monsters['jgsbat'] = jgsbat
-        cmd = {
-            "cmd": "new_custom_monster",
-            "name": "jgsbat"
-        }
         self._send(cmd)
+
 
     def do_down(self, arg):
         self.player_moving(0, 1)
@@ -178,17 +173,18 @@ EOC
         try:
             self.field_addmon(arg)
         except ValueError as error:
-            if error.args[0] == INVALID_ARGS:
-                print("Invalid arguments")
-            elif error.args[0] == UNKNOWN_MONSTER:
-                print("Cannot add unknown monster")
+            with self.print_lock:
+                if error.args[0] == INVALID_ARGS:
+                    print("Invalid arguments")
+                elif error.args[0] == UNKNOWN_MONSTER:
+                    print("Cannot add unknown monster")
 
     def do_attack(self, arg):
         self.player_attack(arg)
     
     def complete_attack(self, text, line, begidx, endidx):
         args = shlex.split(line)
-        all_cows = list(self.field.custom_monsters.keys()) + self.field.monsters
+        all_cows = self.field.custom_monsters + self.field.monsters
         
         if len(args) == 1:
             return sorted(all_cows)
@@ -213,21 +209,30 @@ EOC
     def default(self, line):
         if not line.strip():
             return
-        print("Unknown command")
+        with self.print_lock:
+            print("Unknown command")
     
     def do_exit(self, arg):
-        print("Goodbye")
+        with self.print_lock:
+            print("Goodbye")
         self._close()
         return True
     
     def do_EOF(self, arg):
+        with self.print_lock:
+            print("Goodbye")
         self._close()
-        print("Goodbye")
         return True
 
 
 if __name__ == '__main__':
     try:
-        MUDClient(HOST, PORT).cmdloop()
+        if len(sys.argv) < 2:
+            print("Error. No name")
+            sys.exit(0)
+        name = sys.argv[1]
+        MUDClient(HOST, PORT, name).cmdloop()
     except ConnectionRefusedError:
         print(f"Cannot connect to {HOST}:{PORT}")
+    except ValueError as error:
+        print(error)
