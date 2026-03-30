@@ -1,0 +1,4 @@
+[pydocstyle]
+ignore = D400, D401
+
+
