@@ -120,6 +120,11 @@ EOC
                 monster['hp'] = hp_after
                 msg  += f"{monster['name']} now has {monster['hp']}\n"
 
+        elif cmd == 'sayall':
+            text = data['msg']
+            msg = f"{player.name}: {text}\n"
+            return 'public', msg
+        
         if msg_type == 'public':
             msg = player.name + ' ' + msg
         return msg_type, msg

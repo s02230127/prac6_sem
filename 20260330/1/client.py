@@ -157,6 +157,23 @@ class MUDClient(cmd.Cmd):
         }
         self._send(cmd)
 
+    def sayall(self, line):
+        try:
+            args = shlex.split(line)
+        except ValueError:
+            raise ValueError(INVALID_ARGS)
+        
+        if len(args) != 1:
+            with self.print_lock:
+                print("Invalid arguments")
+            return
+        
+        cmd = {
+            'cmd': 'sayall',
+            'msg': args[0]
+        }
+        self._send(cmd)
+
 
     def do_down(self, arg):
         self.player_moving(0, 1)
@@ -178,6 +195,9 @@ class MUDClient(cmd.Cmd):
                 if error.args[0] == INVALID_ARGS:
                     print("Invalid arguments")
 
+    def do_sayall(self, line):
+        self.sayall(line)
+    
     def do_attack(self, arg):
         self.player_attack(arg)
     
