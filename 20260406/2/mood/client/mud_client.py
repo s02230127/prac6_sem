@@ -8,6 +8,7 @@ import json
 import sys
 import threading
 import readline
+import time
 
 from ..common.constants import INVALID_ARGS
 
@@ -87,6 +88,21 @@ class MUDClient(cmd.Cmd):
     def _close(self):
         """Close connection."""
         self.sock.close()
+
+    def run_script(self, filename):
+        """Run commands from a file."""
+        try:
+            with open(filename, 'r') as file:
+                for line in file:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    self.onecmd(line)
+                    time.sleep(1)
+        except FileNotFoundError:
+            print("File not found")
+        finally:
+            self._close()
 
     def player_moving(self, dx, dy):
         """Move player."""

@@ -27,7 +27,7 @@ class MUDServer:
             return cowsay.cowsay(hello, cowfile=self.field.custom_monsters[name]) + '\n'
         else:
             return cowsay.cowsay(hello, cow=name) + '\n'
-        
+
     def _players_on_cell(self, x, y):
         """Returns players on cell."""
         players = []
@@ -64,7 +64,6 @@ class MUDServer:
         while True:
             await self._move_random_monster()
             await asyncio.sleep(SECONDS_FOR_WANDER)
-
 
     def add_monster_type(self):
         """Add custom monsters."""
@@ -127,14 +126,14 @@ EOC
             name = data['name']
             weapon = data['weapon']
             if (player.x, player.y) not in self.field.monsters:
-                msg = f"No {name} here"
+                msg = f"No {name} here\n"
                 return "private", msg
 
             damage = self.field.weapons[weapon]
             monster = self.field.monsters[(player.x, player.y)]
 
             if monster['name'] != name:
-                msg = f"No {name} here"
+                msg = f"No {name} here\n"
                 return "private", msg
             hp_before = monster['hp']
             hp_after = hp_before - damage if hp_before - damage >= 0 else 0
@@ -228,4 +227,3 @@ EOC
 
         if self._wander_task is not None:
             self._wander_task.cancel()
-        
