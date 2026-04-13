@@ -3,10 +3,11 @@
 import asyncio
 import cowsay
 import json
+import random
 from io import StringIO
 
 from .game_objects import Field, Player
-from ..common.constants import SIZE_X, SIZE_Y, START_X, START_Y
+from ..common.constants import SIZE_X, SIZE_Y, START_X, START_Y, SECONDS_FOR_WANDER
 
 
 class MUDServer:
@@ -16,6 +17,54 @@ class MUDServer:
         """Initialize server."""
         self.field = Field(SIZE_X, SIZE_Y, START_X, START_Y)
         self.add_monster_type()
+        self._wander_task = None
+
+    def _cowsay_monster(self, monster):
+        """Return cowsay monster message."""
+        name = monster['name']
+        hello = monster['hello']
+        if name in self.field.custom_monsters:
+            return cowsay.cowsay(hello, cowfile=self.field.custom_monsters[name]) + '\n'
+        else:
+            return cowsay.cowsay(hello, cow=name) + '\n'
+        
+    def _players_on_cell(self, x, y):
+        """Returns players on cell."""
+        players = []
+        for player in self.field.players.values():
+            if (player.x, player.y) == (x, y):
+                players.append(player)
+        return players
+
+    async def _move_random_monster(self):
+        """Move random monster."""
+        if not self.field.monsters:
+            return
+
+        directions = [(1, 0, 'right'), (-1, 0, 'left'), (0, -1, 'up'), (0, 1, 'down')]
+        monster_positions = list(self.field.monsters.keys())
+
+        for _ in range(1000):
+            x, y = random.choice(monster_positions)
+            dx, dy, direct = random.choice(directions)
+            nx = (x + dx) % self.field.size_x
+            ny = (y + dy) % self.field.size_y
+            if (nx, ny) not in self.field.monsters:
+                monster = self.field.monsters.pop((x, y))
+                self.field.monsters[(nx, ny)] = monster
+                await self.broadcast(f"{monster['name']} moved one cell {direct}\n")
+                for player in self._players_on_cell(nx, ny):
+                    msg = self._cowsay_monster(monster)
+                    await self.send_to(player, msg)
+                return
+
+    async def _wander_monsters(self):
+        """Move monsters every 30 seconds."""
+        await asyncio.sleep(SECONDS_FOR_WANDER)
+        while True:
+            await self._move_random_monster()
+            await asyncio.sleep(SECONDS_FOR_WANDER)
+
 
     def add_monster_type(self):
         """Add custom monsters."""
@@ -51,14 +100,7 @@ EOC
             msg += f"Moved to ({x}, {y})\n"
             msg_type = "private"
             if (x, y) in self.field.monsters:
-                name = self.field.monsters[(x, y)]['name']
-                hello = self.field.monsters[(x, y)]['hello']
-                if name in self.field.custom_monsters:
-                    monster = self.field.custom_monsters[name]
-                    msg += cowsay.cowsay(hello, cowfile=monster) + '\n'
-                else:
-                    monster = name
-                    msg += cowsay.cowsay(hello, cow=monster) + '\n'
+                msg += self._cowsay_monster(self.field.monsters[(x, y)])
 
         elif cmd == 'addmon':
             name = data['name']
@@ -178,6 +220,12 @@ EOC
     async def run(self, host, port):
         """Run server."""
         server = await asyncio.start_server(self.handle_client, host, port)
+        self._wander_task = asyncio.create_task(self._wander_monsters())
         print("Server is started")
+
         async with server:
             await server.serve_forever()
+
+        if self._wander_task is not None:
+            self._wander_task.cancel()
+        

@@ -212,7 +212,12 @@ class MUDClient(cmd.Cmd):
 
     def do_sayall(self, line):
         """Say to all."""
-        self.sayall(line)
+        try:
+            self.sayall(line)
+        except ValueError as error:
+            with self.print_lock:
+                if error.args[0] == INVALID_ARGS:
+                    print("Invalid arguments")
 
     def do_attack(self, arg):
         """Attack."""
