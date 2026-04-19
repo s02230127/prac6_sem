@@ -10,4 +10,4 @@ python-cowsay = "*"
 sphinx = "*"
 
 [requires]
-python_version = "3.14"
+python_version = "3.12"

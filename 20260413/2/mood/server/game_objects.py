@@ -26,3 +26,4 @@ class Player:
         self.writer = writer
         self.x = start_x % size_x
         self.y = start_y % size_y
+        self.locale = None

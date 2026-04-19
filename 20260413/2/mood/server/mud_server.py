@@ -1,5 +1,7 @@
 """MUD server."""
 
+import os
+import gettext
 import asyncio
 import cowsay
 import json
@@ -8,7 +10,7 @@ from io import StringIO
 
 from .game_objects import Field, Player
 from ..common.constants import SIZE_X, SIZE_Y, START_X, START_Y, SECONDS_FOR_WANDER
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class MUDServer:
     """MUD server."""
@@ -35,6 +37,18 @@ class MUDServer:
             if (player.x, player.y) == (x, y):
                 players.append(player)
         return players
+    
+    def _get_translator(self, locale):
+        if locale == 'ru_RU.UTF8':
+            try:
+                return gettext.translation(
+                    'messages',
+                    localedir=os.path.join(BASE_DIR, 'locales'),
+                    languages=['ru']
+                )
+            except FileNotFoundError:
+                return gettext.NullTranslations()
+        return gettext.NullTranslations()
 
     async def _move_random_monster(self):
         """Move random monster."""
@@ -52,15 +66,18 @@ class MUDServer:
             if (nx, ny) not in self.field.monsters:
                 monster = self.field.monsters.pop((x, y))
                 self.field.monsters[(nx, ny)] = monster
-                await self.broadcast(f"{monster['name']} moved one cell {direct}\n")
+                await self.broadcast([
+                    ("msg", "{name} moved one cell {direction}\n",
+                    {"name": monster["name"], "direction": direct})
+                ])
                 for player in self._players_on_cell(nx, ny):
-                    msg = self._cowsay_monster(monster)
-                    await self.send_to(player, msg)
+                    await self.send_to(player, [
+                        ("raw", self._cowsay_monster(monster))
+                    ])
                 return
 
     async def _wander_monsters(self):
         """Move monsters every 30 seconds."""
-        await asyncio.sleep(SECONDS_FOR_WANDER)
         while True:
             await asyncio.sleep(SECONDS_FOR_WANDER)
             if self.field.fl_movemonsters:
@@ -90,24 +107,29 @@ EOC
         data = json.loads(data.decode().strip())
 
         cmd = data['cmd']
-        msg = ""
-        msg_type = "public"
+        parts = []
         if cmd == 'move':
             x = (int(data['dx']) + player.x) % self.field.size_x
             y = (int(data['dy']) + player.y) % self.field.size_y
             player.x = x
             player.y = y
-            msg += f"Moved to ({x}, {y})\n"
-            msg_type = "private"
+
+            parts.append(
+                ("msg", "Moved to ({x}, {y})\n", {"x": x, "y": y}),
+            )
             if (x, y) in self.field.monsters:
-                msg += self._cowsay_monster(self.field.monsters[(x, y)])
+                parts.append(
+                    ("raw", self._cowsay_monster(self.field.monsters[(x, y)]))
+                )
+            return "private", parts
 
         elif cmd == 'addmon':
             name = data['name']
-
             if name not in cowsay.list_cows() and name not in self.field.custom_monsters:
-                msg += "Cannot add unknown monster\n"
-                return "private", msg
+                parts.append(
+                    ("msg", "Cannot add unknown monster\n", {})
+                )
+                return "private", parts
 
             hp = int(data['hp'])
             x, y = int(data['x']), int(data['y'])
@@ -119,65 +141,152 @@ EOC
             }
             fl_replaced = (x, y) in self.field.monsters
             self.field.monsters[(x, y)] = stats
-            msg += f"added monster {stats['name']} to ({x}, {y}) with {hp} saying {stats['hello']}\n"
+            parts.append(
+                ("nmsg",
+                "{player} added monster {name} to ({x}, {y}) with {hp} hit point saying {hello}\n",
+                "{player} added monster {name} to ({x}, {y}) with {hp} hit points saying {hello}\n",
+                hp,
+                {
+                    "name": stats["name"],
+                    "x": x,
+                    "y": y,
+                    "hp": hp,
+                    "hello": stats["hello"],
+                    "player": player.name
+                })
+            )
             if fl_replaced:
-                msg += "Replaced the old monster\n"
+                parts.append(
+                    ("msg", "Replaced the old monster\n", {})
+                )
+            return "public", parts
 
         elif cmd == "attack":
             name = data['name']
             weapon = data['weapon']
             if (player.x, player.y) not in self.field.monsters:
-                msg = f"No {name} here\n"
-                return "private", msg
+                parts.append(
+                    ("msg", "No {name} here\n", {"name": name})
+                )
+                return "private", parts
 
             damage = self.field.weapons[weapon]
             monster = self.field.monsters[(player.x, player.y)]
 
             if monster['name'] != name:
-                msg = f"No {name} here\n"
-                return "private", msg
+                parts.append(
+                    ("msg", "No {name} here\n", {"name": name})
+                )
+                return "private", parts
+            
+
             hp_before = monster['hp']
             hp_after = hp_before - damage if hp_before - damage >= 0 else 0
+            dealt = hp_before - hp_after
 
-            msg += f"attacked {monster['name']} with {weapon}, damage {hp_before - hp_after} hp\n"
+            parts.append(
+                ("nmsg",
+                "{player} attacked {name} with {weapon}, damage {damage} hit point\n",
+                "{player} attacked {name} with {weapon}, damage {damage} hit points\n",
+                dealt,
+                {
+                    "player": player.name,
+                    "name": monster["name"],
+                    "weapon": weapon,
+                    "damage": dealt,
+                })
+            )
+
             if hp_after == 0:
                 del self.field.monsters[(player.x, player.y)]
-                msg += f"{monster['name']} died\n"
+                parts.append(
+                    ("msg", "{name} died\n", {"name": monster["name"]})
+                )
             else:
                 monster['hp'] = hp_after
-                msg += f"{monster['name']} now has {monster['hp']}\n"
+                parts.append(
+                    ("nmsg",
+                    "{name} now has {hp} hit point\n",
+                    "{name} now has {hp} hit points\n",
+                    hp_after,
+                    {
+                        "name": monster["name"],
+                        "hp": hp_after,
+                    })
+                )
+            return "public", parts
 
         elif cmd == 'sayall':
             text = data['msg']
-            msg = f"{player.name}: {text}\n"
-            return 'public', msg
-        
+            parts.append(
+                ("raw", f"{player.name}: {text}\n")
+            )
+            return "public", parts
+
         elif cmd == 'movemonsters':
             state = data['state']
             if state == 'off':
                 self.field.fl_movemonsters = False
-                msg += "Moving monsters: off\n"
+                parts.append(
+                    ("msg", "Moving monsters: off\n", {})
+                )
             elif state == 'on':
                 self.field.fl_movemonsters = True
-                msg += "Moving monsters: on\n"
-            return "private", msg
+                parts.append(
+                    ("msg", "Moving monsters: on\n", {})
+                )
+            return "private", parts
 
-        if msg_type == 'public':
-            msg = player.name + ' ' + msg
-        return msg_type, msg
+        elif cmd == 'locale':
+            locale = data['locale']
+            player.locale = locale
+            parts.append(
+                ("msg", "Set up locale: {locale}\n", {"locale": locale})
+            )
+            return "private", parts
 
-    async def send_to(self, player, msg):
-        """Send to player."""
-        data = msg.encode() + b'\0'
+        return "private", [
+            ("raw", "Unknown command\n")
+        ]
+
+    def _make_message(self, player, parts):
+        """Build localized message from parts for one player."""
+        translator = self._get_translator(player.locale)
+        chunks = []
+
+        for part in parts:
+            kind = part[0]
+
+            if kind == "msg":
+                _, msg_key, kwargs = part
+                text = translator.gettext(msg_key).format(**kwargs)
+                chunks.append(text)
+
+            elif kind == "nmsg":
+                _, singular, plural, n, kwargs = part
+                text = translator.ngettext(singular, plural, n).format(**kwargs)
+                chunks.append(text)
+
+            elif kind == "raw":
+                _, text = part
+                chunks.append(text)
+
+        return "".join(chunks)
+    
+    async def send_to(self, player, parts):
+        """Send localized message parts to one player."""
+        data = self._make_message(player, parts).encode() + b'\0'
         player.writer.write(data)
         await player.writer.drain()
 
-    async def broadcast(self, msg):
-        """Broadcast message."""
-        data = msg.encode() + b'\0'
+    async def broadcast(self, parts):
+        """Broadcast localized message parts to all players."""
         players = list(self.field.players.values())
+
         for player in players:
+            data = self._make_message(player, parts).encode() + b'\0'
             player.writer.write(data)
+
         for player in players:
             await player.writer.drain()
 
@@ -190,15 +299,19 @@ EOC
             if not data:
                 return
             data = json.loads(data.decode().strip())
-            msg = b''
             player_name = None
             if data['cmd'] == 'reg' and data['name'] not in self.field.players:
                 player_name = data['name']
                 player = Player(player_name, writer)
                 self.field.players[player_name] = player
-                msg = f"Successfully registered as {player_name}\n"
+                msg = [
+                    ("msg", "Successfully registered as {name}\n", {"name": player_name})
+                ]
                 await self.send_to(player, msg)
-                await self.broadcast(f"{player_name} joined the MUD\n")
+
+                await self.broadcast([
+                    ("msg", "{name} joined the MUD\n", {"name": player_name})
+                ])
                 print(addr, "has taken name", player_name)
             else:
                 writer.write("Registration denied: name already in use\n".encode() + b'\0')
@@ -209,11 +322,11 @@ EOC
                 data = await reader.readline()
                 if not data:
                     break
-                ans_type, ans = self.command_handler(player, data)
+                ans_type, parts = self.command_handler(player, data)
                 if ans_type == 'public':
-                    await self.broadcast(ans)
+                    await self.broadcast(parts)
                 else:
-                    await self.send_to(player, ans)
+                    await self.send_to(player, parts)
         except ConnectionAbortedError:
             pass
         finally:
@@ -222,7 +335,9 @@ EOC
             if player_name:
                 del self.field.players[player_name]
                 print(f"{player_name} left, name is avaible now")
-                await self.broadcast(f"{player_name} left the MUD\n")
+                await self.broadcast([
+                    ("msg", "{name} left the MUD\n", {"name": player_name})
+                ])
 
             writer.close()
             await writer.wait_closed()

@@ -1,0 +1,59 @@
+msgid ""
+msgstr ""
+"Language: ru\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "Set up locale: {locale}\n"
+msgstr "Установлена локаль: {locale}\n"
+
+msgid "Successfully registered as {name}\n"
+msgstr "Вы успешно зарегистрировались как {name}\n"
+
+msgid "{name} joined the MUD\n"
+msgstr "{name} присоединился к MUD\n"
+
+msgid "{name} left the MUD\n"
+msgstr "{name} покинул MUD\n"
+
+msgid "Moved to ({x}, {y})\n"
+msgstr "Перемещение в ({x}, {y})\n"
+
+msgid "Cannot add unknown monster\n"
+msgstr "Нельзя добавить неизвестного монстра\n"
+
+msgid "Replaced the old monster\n"
+msgstr "Старый монстр заменен\n"
+
+msgid "No {name} here\n"
+msgstr "Здесь нет {name}\n"
+
+msgid "{name} died\n"
+msgstr "{name} погиб\n"
+
+msgid "Moving monsters: off\n"
+msgstr "Перемещение монстров: выкл\n"
+
+msgid "Moving monsters: on\n"
+msgstr "Перемещение монстров: вкл\n"
+
+msgid "{name} moved one cell {direction}\n"
+msgstr "{name} переместился на одну клетку {direction}\n"
+
+msgid "{player} added monster {name} to ({x}, {y}) with {hp} hit point saying {hello}\n"
+msgid_plural "{player} added monster {name} to ({x}, {y}) with {hp} hit points saying {hello}\n"
+msgstr[0] "{player} добавил монстра {name} в ({x}, {y}) с {hp} очком здоровья, который говорит: {hello}\n"
+msgstr[1] "{player} добавил монстра {name} в ({x}, {y}) с {hp} очками здоровья, который говорит: {hello}\n"
+msgstr[2] "{player} добавил монстра {name} в ({x}, {y}) с {hp} очками здоровья, который говорит: {hello}\n"
+
+msgid "{player} attacked {name} with {weapon}, damage {damage} hit point\n"
+msgid_plural "{player} attacked {name} with {weapon}, damage {damage} hit points\n"
+msgstr[0] "{player} атаковал {name} оружием {weapon}, нанеся {damage} очко урона\n"
+msgstr[1] "{player} атаковал {name} оружием {weapon}, нанеся {damage} очка урона\n"
+msgstr[2] "{player} атаковал {name} оружием {weapon}, нанеся {damage} очков урона\n"
+
+msgid "{name} now has {hp} hit point\n"
+msgid_plural "{name} now has {hp} hit points\n"
+msgstr[0] "У {name} осталось {hp} очко здоровья\n"
+msgstr[1] "У {name} осталось {hp} очка здоровья\n"
+msgstr[2] "У {name} осталось {hp} очков здоровья\n"

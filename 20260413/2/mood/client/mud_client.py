@@ -204,17 +204,30 @@ class MUDClient(cmd.Cmd):
             args = shlex.split(line)
         except ValueError:
             raise ValueError(INVALID_ARGS)
-        
+
         if len(args) != 1 or args[0] not in ('on', 'off'):
             raise ValueError(INVALID_ARGS)
-        
+
         cmd = {
             'cmd': 'movemonsters',
             'state': args[0]
         }
         self._send(cmd)
-        
 
+    def locale(self, line):
+        try:
+            args = shlex.split(line)
+        except ValueError:
+            raise ValueError(INVALID_ARGS)
+
+        if len(args) != 1:
+            raise ValueError(INVALID_ARGS)
+
+        cmd = {
+            'cmd': 'locale',
+            'locale': args[0]
+        }
+        self._send(cmd)
 
     def do_down(self, arg):
         """Move down."""
@@ -259,6 +272,13 @@ class MUDClient(cmd.Cmd):
                 if error.args[0] == INVALID_ARGS:
                     print("Invalid arguments")
 
+    def do_locale(self, line):
+        try:
+            self.locale(line)
+        except ValueError as error:
+            with self.print_lock:
+                if error.args[0] == INVALID_ARGS:
+                    print("Invalid arguments")
 
     def do_attack(self, arg):
         """Attack."""
