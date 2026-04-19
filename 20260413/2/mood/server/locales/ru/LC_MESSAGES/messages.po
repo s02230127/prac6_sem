@@ -37,8 +37,17 @@ msgstr "Перемещение монстров: выкл\n"
 msgid "Moving monsters: on\n"
 msgstr "Перемещение монстров: вкл\n"
 
-msgid "{name} moved one cell {direction}\n"
-msgstr "{name} переместился на одну клетку {direction}\n"
+msgid "{name} moved one cell right\n"
+msgstr "{name} переместился на одну клетку вправо\n"
+
+msgid "{name} moved one cell left\n"
+msgstr "{name} переместился на одну клетку влево\n"
+
+msgid "{name} moved one cell up\n"
+msgstr "{name} переместился на одну клетку вверх\n"
+
+msgid "{name} moved one cell down\n"
+msgstr "{name} переместился на одну клетку вниз\n"
 
 msgid "{player} added monster {name} to ({x}, {y}) with {hp} hit point saying {hello}\n"
 msgid_plural "{player} added monster {name} to ({x}, {y}) with {hp} hit points saying {hello}\n"

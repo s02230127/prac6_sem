@@ -12,6 +12,7 @@ from .game_objects import Field, Player
 from ..common.constants import SIZE_X, SIZE_Y, START_X, START_Y, SECONDS_FOR_WANDER
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
 class MUDServer:
     """MUD server."""
 
@@ -37,8 +38,9 @@ class MUDServer:
             if (player.x, player.y) == (x, y):
                 players.append(player)
         return players
-    
+
     def _get_translator(self, locale):
+        """Returns translator."""
         if locale == 'ru_RU.UTF8':
             try:
                 return gettext.translation(
@@ -66,9 +68,16 @@ class MUDServer:
             if (nx, ny) not in self.field.monsters:
                 monster = self.field.monsters.pop((x, y))
                 self.field.monsters[(nx, ny)] = monster
+                if direct == "right":
+                    msg_key = "{name} moved one cell right\n"
+                elif direct == "left":
+                    msg_key = "{name} moved one cell left\n"
+                elif direct == "up":
+                    msg_key = "{name} moved one cell up\n"
+                else:
+                    msg_key = "{name} moved one cell down\n"
                 await self.broadcast([
-                    ("msg", "{name} moved one cell {direction}\n",
-                    {"name": monster["name"], "direction": direct})
+                    ("msg", msg_key, {"name": monster["name"]})
                 ])
                 for player in self._players_on_cell(nx, ny):
                     await self.send_to(player, [
@@ -142,18 +151,20 @@ EOC
             fl_replaced = (x, y) in self.field.monsters
             self.field.monsters[(x, y)] = stats
             parts.append(
-                ("nmsg",
-                "{player} added monster {name} to ({x}, {y}) with {hp} hit point saying {hello}\n",
-                "{player} added monster {name} to ({x}, {y}) with {hp} hit points saying {hello}\n",
-                hp,
-                {
-                    "name": stats["name"],
-                    "x": x,
-                    "y": y,
-                    "hp": hp,
-                    "hello": stats["hello"],
-                    "player": player.name
-                })
+                (
+                    "nmsg",
+                    "{player} added monster {name} to ({x}, {y}) with {hp} hit point saying {hello}\n",
+                    "{player} added monster {name} to ({x}, {y}) with {hp} hit points saying {hello}\n",
+                    hp,
+                    {
+                        "name": stats["name"],
+                        "x": x,
+                        "y": y,
+                        "hp": hp,
+                        "hello": stats["hello"],
+                        "player": player.name
+                    }
+                )
             )
             if fl_replaced:
                 parts.append(
@@ -178,23 +189,24 @@ EOC
                     ("msg", "No {name} here\n", {"name": name})
                 )
                 return "private", parts
-            
 
             hp_before = monster['hp']
             hp_after = hp_before - damage if hp_before - damage >= 0 else 0
             dealt = hp_before - hp_after
 
             parts.append(
-                ("nmsg",
-                "{player} attacked {name} with {weapon}, damage {damage} hit point\n",
-                "{player} attacked {name} with {weapon}, damage {damage} hit points\n",
-                dealt,
-                {
-                    "player": player.name,
-                    "name": monster["name"],
-                    "weapon": weapon,
-                    "damage": dealt,
-                })
+                (
+                    "nmsg",
+                    "{player} attacked {name} with {weapon}, damage {damage} hit point\n",
+                    "{player} attacked {name} with {weapon}, damage {damage} hit points\n",
+                    dealt,
+                    {
+                        "player": player.name,
+                        "name": monster["name"],
+                        "weapon": weapon,
+                        "damage": dealt,
+                    }
+                )
             )
 
             if hp_after == 0:
@@ -205,14 +217,16 @@ EOC
             else:
                 monster['hp'] = hp_after
                 parts.append(
-                    ("nmsg",
-                    "{name} now has {hp} hit point\n",
-                    "{name} now has {hp} hit points\n",
-                    hp_after,
-                    {
-                        "name": monster["name"],
-                        "hp": hp_after,
-                    })
+                    (
+                        "nmsg",
+                        "{name} now has {hp} hit point\n",
+                        "{name} now has {hp} hit points\n",
+                        hp_after,
+                        {
+                            "name": monster["name"],
+                            "hp": hp_after,
+                        }
+                    )
                 )
             return "public", parts
 
@@ -272,7 +286,7 @@ EOC
                 chunks.append(text)
 
         return "".join(chunks)
-    
+
     async def send_to(self, player, parts):
         """Send localized message parts to one player."""
         data = self._make_message(player, parts).encode() + b'\0'
