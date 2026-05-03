@@ -8,6 +8,7 @@ python-cowsay = "*"
 
 [dev-packages]
 sphinx = "*"
+doit = "*"
 
 [requires]
 python_version = "3.14"
