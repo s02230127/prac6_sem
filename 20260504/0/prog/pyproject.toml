@@ -1,0 +1,14 @@
+[project]
+name="prog"
+description="word counter"
+version="0.0.1"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+prog="prog"
+
+[tool.setuptools.package-data]
+prog=["po/*/*/*.po"]
