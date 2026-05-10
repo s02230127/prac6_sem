@@ -100,7 +100,6 @@ class TestMudServer(unittest.TestCase):
         msg = self.recv_msg()
         self.assertEqual("No sheep here\n", msg)
 
-
     def tearDown(self):
         self.sock.close()
         self.proc.terminate()
@@ -119,8 +118,6 @@ class TestMudServer(unittest.TestCase):
 
         msg, self.buf = self.buf.split(b'\0', maxsplit=1)
         return msg.decode()
-        
-
 
 
 if __name__ == "__main__":

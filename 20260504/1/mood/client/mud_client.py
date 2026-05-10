@@ -9,6 +9,8 @@ import sys
 import threading
 import readline
 import time
+import webbrowser
+from importlib.resources import files
 
 from ..common.constants import INVALID_ARGS
 
@@ -200,6 +202,7 @@ class MUDClient(cmd.Cmd):
         self._send(cmd)
 
     def movemonsters(self, line):
+        """Turn on/off monsters random moving."""
         try:
             args = shlex.split(line)
         except ValueError:
@@ -215,6 +218,7 @@ class MUDClient(cmd.Cmd):
         self._send(cmd)
 
     def locale(self, line):
+        """Set locale."""
         try:
             args = shlex.split(line)
         except ValueError:
@@ -273,6 +277,7 @@ class MUDClient(cmd.Cmd):
                     print("Invalid arguments")
 
     def do_locale(self, line):
+        """Set locale."""
         try:
             self.locale(line)
         except ValueError as error:
@@ -305,6 +310,11 @@ class MUDClient(cmd.Cmd):
             return [w for w in self.field.weapons if w.startswith(text)]
 
         return []
+
+    def do_documentation(self, arg):
+        """Open generated documentation in browser."""
+        index = files("mood").joinpath("docs/html/index.html")
+        webbrowser.open(index.as_uri())
 
     def emptyline(self):
         """Handle empty line."""

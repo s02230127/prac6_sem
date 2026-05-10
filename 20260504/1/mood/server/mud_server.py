@@ -6,7 +6,7 @@ import asyncio
 import cowsay
 import json
 import random
-from io import StringIO
+from importlib.resources import files
 
 from .game_objects import Field, Player
 from ..common.constants import SIZE_X, SIZE_Y, START_X, START_Y, SECONDS_FOR_WANDER
@@ -94,22 +94,9 @@ class MUDServer:
 
     def add_monster_type(self):
         """Add custom monsters."""
-        jgsbat = cowsay.read_dot_cow(StringIO(r"""
-$the_cow = <<EOC;
-        $thoughts
-            $thoughts
-    ,_                    _,
-    ) '-._  ,_    _,  _.-' (
-    )  _.-'.|\\\--//|.'-._  (
-     )'   .'\/o\/o\/'.   `(
-      ) .' . \====/ . '. (
-       )  / <<    >> \  (
-        '-._/``  ``\_.-'
-  jgs     __\\\'--'//__
-         (((""`  `"")))
-EOC
-    """))
-        self.field.custom_monsters['jgsbat'] = jgsbat
+        monster_path = files("mood.server").joinpath("custom_monsters/jgsbat.txt")
+        with monster_path.open("r", encoding="utf-8") as cow_file:
+            self.field.custom_monsters["jgsbat"] = cowsay.read_dot_cow(cow_file)
 
     def command_handler(self, player, data):
         """Handle commands."""

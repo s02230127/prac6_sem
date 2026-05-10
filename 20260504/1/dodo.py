@@ -1,7 +1,14 @@
+"""Doit tasks for MUD project."""
+
+import os
 import shutil
 from pathlib import Path
 
-from doit.task import clean_targets
+
+PO_FILE = Path("mood/server/locales/ru/LC_MESSAGES/messages.po")
+MO_FILE = Path("mood/server/locales/ru/LC_MESSAGES/messages.mo")
+
+DOCS_HTML = Path("mood/docs/html")
 
 
 DOIT_CONFIG = {
@@ -9,30 +16,36 @@ DOIT_CONFIG = {
 }
 
 
-PO_FILE = Path("mood/server/locales/ru/LC_MESSAGES/messages.po")
-MO_FILE = Path("mood/server/locales/ru/LC_MESSAGES/messages.mo")
+def clean_targets(task):
+    """Remove task targets."""
+    for target in task.targets:
+        if os.path.exists(target):
+            os.remove(target)
 
-DOCS_SOURCE = Path("docs/source")
-DOCS_BUILD = Path("docs/build")
-HTML_INDEX = DOCS_BUILD / "html" / "index.html"
+
+def clean_html():
+    """Remove generated HTML documentation directory."""
+    if DOCS_HTML.exists():
+        shutil.rmtree(DOCS_HTML)
 
 
-def remove_docs_build():
-    """Remove docs."""
-    if DOCS_BUILD.exists():
-        shutil.rmtree(DOCS_BUILD)
+def clean_mo():
+    """Remove compiled translation."""
+    if MO_FILE.exists():
+        MO_FILE.unlink()
 
 
 def task_i18n_mo():
     """Compile ru translation."""
     return {
-        'actions': [
-            'pybabel compile -i mood/server/locales/ru/LC_MESSAGES/messages.po '
-            '-o mood/server/locales/ru/LC_MESSAGES/messages.mo'
+        "actions": [
+            "pybabel compile "
+            f"-i {PO_FILE} "
+            f"-o {MO_FILE}"
         ],
-        'file_dep': [PO_FILE],
-        'targets': [MO_FILE],
-        'clean': [clean_targets],
+        "file_dep": [str(PO_FILE)],
+        "targets": [str(MO_FILE)],
+        "clean": [clean_targets],
     }
 
 
@@ -41,6 +54,7 @@ def task_i18n():
     return {
         "actions": None,
         "task_dep": ["i18n_mo"],
+        "clean": [clean_mo],
     }
 
 
@@ -48,22 +62,33 @@ def task_html():
     """Generate HTML documentation."""
     return {
         "actions": [
-            f"sphinx-build -M html {DOCS_SOURCE} {DOCS_BUILD}",
+            "mkdir -p mood/docs/html",
+            "python -m sphinx -b html docs/source mood/docs/html",
         ],
         "file_dep": [
             "docs/source/conf.py",
             "docs/source/index.rst",
+            "docs/source/modules.rst",
+            "docs/source/mood.rst",
+            "docs/source/mood.client.rst",
+            "docs/source/mood.common.rst",
+            "docs/source/mood.server.rst",
         ],
-        "targets": [HTML_INDEX],
-        "clean": [remove_docs_build],
+        "targets": [
+            "mood/docs/html/index.html",
+        ],
+        "clean": [clean_html],
     }
 
 
 def task_test():
-    """Run client and server tests."""
+    """Run client-server tests."""
     return {
         "actions": [
-            "python -m unittest test_client.py test_server.py",
+            "python -m unittest discover .",
         ],
-        "task_dep": ["i18n"],
+        "task_dep": [
+            "i18n",
+        ],
+        "clean": [],
     }

@@ -5,10 +5,14 @@ name = "pypi"
 
 [packages]
 python-cowsay = "*"
+mood-mud = {file = ".", editable = true}
 
 [dev-packages]
 sphinx = "*"
 doit = "*"
+babel = "*"
+build = "*"
+flake8 = "*"
 
 [requires]
 python_version = "3.14"

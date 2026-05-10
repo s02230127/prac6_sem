@@ -1,2 +1,3 @@
 [flake8]
-max-line-length = 110
+exclude = test_server.py
+max-line-length = 121

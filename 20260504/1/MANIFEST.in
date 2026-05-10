@@ -1,0 +1,3 @@
+recursive-include mood/server/locales *.mo
+recursive-include mood/server/custom_monsters *.txt
+recursive-include mood/docs/html *
