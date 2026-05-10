@@ -1,0 +1,6 @@
+docs/build/
+__pycache__/
+mood/__pycache__/
+mood/client/__pycache__/
+mood/common/__pycache__/
+mood/server/__pycache__/
