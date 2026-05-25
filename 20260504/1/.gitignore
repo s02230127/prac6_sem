@@ -1,4 +1,6 @@
 docs/build/
+mood/docs/html/
+mood/server/locales/ru/LC_MESSAGES/messages.mo
 __pycache__/
 mood/__pycache__/
 mood/client/__pycache__/

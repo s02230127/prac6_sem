@@ -13,6 +13,7 @@ doit = "*"
 babel = "*"
 build = "*"
 flake8 = "*"
+pydocstyle = "*"
 
 [requires]
 python_version = "3.14"

@@ -94,7 +94,7 @@ class MUDServer:
 
     def add_monster_type(self):
         """Add custom monsters."""
-        monster_path = files("mood.server").joinpath("custom_monsters/jgsbat.txt")
+        monster_path = files("mood.server").joinpath("custom_monsters/jgsbat.cow")
         with monster_path.open("r", encoding="utf-8") as cow_file:
             self.field.custom_monsters["jgsbat"] = cowsay.read_dot_cow(cow_file)
 
